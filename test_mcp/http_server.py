@@ -171,6 +171,7 @@ def create_http_app() -> FastAPI:
     @app.get("/health")
     async def health_check():
         """Health check endpoint."""
+        print(f"DEBUG: Expected token: {os.getenv('MCP_API_KEY', 'NOT_SET')}")
         return {"status": "healthy", "transport": "http"}
     
     @app.post("/mcp")
@@ -184,10 +185,10 @@ def create_http_app() -> FastAPI:
         Main MCP endpoint supporting both list_tools and call_tool actions.
         Supports both JSON and SSE responses.
         """
-        # Debug logging
-        import logging
-        logging.info(f"Received Authorization header: {token}")
-        logging.info(f"Expected token: {os.getenv('MCP_API_KEY', 'NOT_SET')}")
+        # Debug logging - use print to ensure it shows in Railway logs
+        print(f"DEBUG: Received Authorization header: {token}")
+        print(f"DEBUG: Expected token: {os.getenv('MCP_API_KEY', 'NOT_SET')}")
+        print(f"DEBUG: Payload: {payload}")
 
         # Verify authentication
         if token:
