@@ -30,7 +30,7 @@ class ToolDefinition(BaseModel):
     """MCP tool definition."""
     name: str
     description: str
-    input_schema: Dict[str, Any]
+    inputSchema: Dict[str, Any]  # camelCase per MCP spec
 
 
 class ListToolsResponse(BaseModel):
@@ -82,7 +82,7 @@ def get_tool_definitions() -> List[ToolDefinition]:
         ToolDefinition(
             name="search_items",
             description="Search for items in the database. Returns a list of matching items with pagination support.",
-            input_schema={
+            inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {
@@ -109,7 +109,7 @@ def get_tool_definitions() -> List[ToolDefinition]:
         ToolDefinition(
             name="get_item",
             description="Retrieve a single item by its ID. Returns detailed information about the item.",
-            input_schema={
+            inputSchema={
                 "type": "object",
                 "properties": {
                     "id": {
@@ -125,7 +125,7 @@ def get_tool_definitions() -> List[ToolDefinition]:
         ToolDefinition(
             name="health",
             description="Check the health status of the server and any upstream dependencies.",
-            input_schema={
+            inputSchema={
                 "type": "object",
                 "properties": {},
                 "additionalProperties": False
