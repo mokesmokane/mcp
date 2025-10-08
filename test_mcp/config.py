@@ -1,4 +1,4 @@
-""
+"""
 Configuration settings for the MCP server.
 """
 import os

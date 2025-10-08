@@ -1,4 +1,4 @@
-""
+"""
 Request handlers for the MCP server.
 """
 from fastapi import APIRouter, HTTPException
