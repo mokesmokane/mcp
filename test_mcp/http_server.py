@@ -182,10 +182,10 @@ def create_http_app() -> FastAPI:
         token: str = Header(None, alias="Authorization")
     ):
         """
-        Main MCP endpoint supporting both list_tools and call_tool actions.
-        Supports both JSON and SSE responses.
+        Main MCP endpoint supporting JSON-RPC 2.0 protocol.
+        Compatible with OpenAI Responses API.
         """
-        # Debug logging - use print to ensure it shows in Railway logs
+        # Debug logging
         print(f"DEBUG: Received Authorization header: {token}")
         print(f"DEBUG: Expected token: {os.getenv('MCP_API_KEY', 'NOT_SET')}")
         print(f"DEBUG: Payload: {payload}")
@@ -193,42 +193,98 @@ def create_http_app() -> FastAPI:
         # Verify authentication
         if token:
             verify_auth(token)
-        
-        action = payload.get("action")
-        
-        # List tools
-        if action == "list_tools":
+
+        # Handle JSON-RPC 2.0 format
+        jsonrpc = payload.get("jsonrpc")
+        method = payload.get("method")
+        rpc_id = payload.get("id")
+        params = payload.get("params", {})
+
+        if jsonrpc != "2.0":
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32600, "message": "Invalid Request - not JSON-RPC 2.0"}
+                }
+            )
+
+        # Handle initialize
+        if method == "initialize":
+            return JSONResponse(content={
+                "jsonrpc": "2.0",
+                "id": rpc_id,
+                "result": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {
+                        "tools": {}
+                    },
+                    "serverInfo": {
+                        "name": "test-mcp-server",
+                        "version": "0.1.0"
+                    }
+                }
+            })
+
+        # Handle tools/list
+        elif method == "tools/list":
             tools = get_tool_definitions()
-            response = ListToolsResponse(tools=tools)
-            return JSONResponse(content=response.model_dump())
-        
-        # Call tool
-        elif action == "call_tool":
+            return JSONResponse(content={
+                "jsonrpc": "2.0",
+                "id": rpc_id,
+                "result": {
+                    "tools": [t.model_dump() for t in tools]
+                }
+            })
+
+        # Handle tools/call
+        elif method == "tools/call":
+            tool_name = params.get("name")
+            arguments = params.get("arguments", {})
+
             try:
-                req = CallToolRequest(**payload)
+                result = await execute_tool(tool_name, arguments)
+                return JSONResponse(content={
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": json.dumps(result)
+                            }
+                        ]
+                    }
+                })
+            except HTTPException as e:
+                return JSONResponse(
+                    status_code=e.status_code,
+                    content={
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {"code": -32603, "message": e.detail}
+                    }
+                )
             except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid request: {str(e)}")
-            
-            # Execute tool
-            try:
-                result = await execute_tool(req.name, req.arguments)
-                
-                # Return as streaming response (chunked transfer)
-                async def stream() -> AsyncIterator[bytes]:
-                    output = CallToolResponse(
-                        output=json.dumps(result, separators=(",", ":"))
-                    )
-                    yield (json.dumps(output.model_dump()) + "\n").encode("utf-8")
-                
-                return StreamingResponse(stream(), media_type="application/json")
-            
-            except HTTPException:
-                raise
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Tool execution failed: {str(e)}")
-        
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {"code": -32603, "message": f"Internal error: {str(e)}"}
+                    }
+                )
+
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported action: {action}")
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32601, "message": f"Method not found: {method}"}
+                }
+            )
     
     @app.post("/mcp/sse")
     @limiter.limit("100/minute")
