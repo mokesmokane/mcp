@@ -210,6 +210,12 @@ def create_http_app() -> FastAPI:
                 }
             )
 
+        # Handle notifications (no id, no response expected)
+        if rpc_id is None:
+            print(f"DEBUG: Received notification: {method}")
+            # Just acknowledge notifications with 200 OK
+            return JSONResponse(content={"ok": True})
+
         # Handle initialize
         if method == "initialize":
             return JSONResponse(content={
