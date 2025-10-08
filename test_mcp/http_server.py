@@ -184,6 +184,11 @@ def create_http_app() -> FastAPI:
         Main MCP endpoint supporting both list_tools and call_tool actions.
         Supports both JSON and SSE responses.
         """
+        # Debug logging
+        import logging
+        logging.info(f"Received Authorization header: {token}")
+        logging.info(f"Expected token: {os.getenv('MCP_API_KEY', 'NOT_SET')}")
+
         # Verify authentication
         if token:
             verify_auth(token)
