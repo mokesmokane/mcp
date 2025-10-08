@@ -18,4 +18,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD python -c "import requests; requests.get('http://localhost:8000/health')"
 
 # Run the HTTP server
-CMD ["uvicorn", "main_http:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "main_http.py"]
