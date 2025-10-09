@@ -175,37 +175,51 @@ async def get_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     Arguments:
         id: The UUID of the documentation record to retrieve
     """
+    print(f"DEBUG: get_documentation_tool called with id={arguments.get('id')}")
+
     try:
+        print("DEBUG: Attempting to get Supabase client...")
         supabase = get_supabase_client()
+        print("DEBUG: Supabase client obtained successfully")
+
         doc_id = arguments.get("id")
 
         if not doc_id:
+            print("ERROR: Missing id parameter")
             return {
                 "success": False,
                 "error": "Missing required field: id"
             }
 
         # Query Supabase for the documentation
+        print(f"DEBUG: Querying Supabase for doc_id={doc_id}")
         result = supabase.table("api_documentation").select("*").eq("id", doc_id).execute()
+        print(f"DEBUG: Query result: found {len(result.data) if result.data else 0} records")
 
         if not result.data or len(result.data) == 0:
+            print(f"ERROR: Documentation with id '{doc_id}' not found")
             return {
                 "success": False,
                 "error": f"Documentation with id '{doc_id}' not found"
             }
 
+        print(f"DEBUG: Successfully retrieved documentation: {result.data[0].get('title', 'No title')}")
         return {
             "success": True,
             "documentation": result.data[0]
         }
 
     except ValueError as e:
+        print(f"ERROR: ValueError in get_documentation: {str(e)}")
         return {
             "success": False,
             "error": str(e),
             "message": "Supabase configuration error"
         }
     except Exception as e:
+        print(f"ERROR: Exception in get_documentation: {str(e)}")
+        import traceback
+        print(f"ERROR: Traceback: {traceback.format_exc()}")
         return {
             "success": False,
             "error": str(e),
