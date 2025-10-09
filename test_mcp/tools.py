@@ -168,6 +168,51 @@ async def health_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     return health_status
 
 
+async def get_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Retrieve API documentation from Supabase by ID.
+
+    Arguments:
+        id: The UUID of the documentation record to retrieve
+    """
+    try:
+        supabase = get_supabase_client()
+        doc_id = arguments.get("id")
+
+        if not doc_id:
+            return {
+                "success": False,
+                "error": "Missing required field: id"
+            }
+
+        # Query Supabase for the documentation
+        result = supabase.table("api_documentation").select("*").eq("id", doc_id).execute()
+
+        if not result.data or len(result.data) == 0:
+            return {
+                "success": False,
+                "error": f"Documentation with id '{doc_id}' not found"
+            }
+
+        return {
+            "success": True,
+            "documentation": result.data[0]
+        }
+
+    except ValueError as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Supabase configuration error"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to retrieve documentation"
+        }
+
+
 async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """
     Save API documentation to Supabase and upload to OpenAI vector store.

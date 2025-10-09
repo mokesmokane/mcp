@@ -13,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 import json
 import os
 
-from .tools import search_items_tool, get_item_tool, health_tool, save_documentation_tool
+from .tools import search_items_tool, get_item_tool, health_tool, save_documentation_tool, get_documentation_tool
 
 
 # Rate limiter
@@ -135,6 +135,21 @@ def get_tool_definitions() -> List[ToolDefinition]:
             }
         ),
         ToolDefinition(
+            name="get_documentation",
+            description="Retrieve API documentation from the database by ID. Use this to fetch full documentation details after finding relevant docs via semantic search.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "The UUID of the documentation record to retrieve"
+                    }
+                },
+                "required": ["id"],
+                "additionalProperties": False
+            }
+        ),
+        ToolDefinition(
             name="save_documentation",
             description="Save API documentation to the database and upload to OpenAI vector store for semantic search. Use this to store detailed documentation about API endpoints.",
             inputSchema={
@@ -205,6 +220,8 @@ async def execute_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         return await get_item_tool(arguments)
     elif name == "health":
         return await health_tool(arguments)
+    elif name == "get_documentation":
+        return await get_documentation_tool(arguments)
     elif name == "save_documentation":
         return await save_documentation_tool(arguments)
     else:
