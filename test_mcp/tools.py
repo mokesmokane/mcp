@@ -232,19 +232,33 @@ async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                     purpose="assistants"
                 )
 
-                # Add file to vector store with metadata
-                vector_store_response = openai_client.beta.vector_stores.files.create(
-                    vector_store_id=settings.OPENAI_VECTOR_STORE_ID,
-                    file_id=file_response.id,
-                    attributes={
+                # Add file to vector store using HTTP API directly
+                headers = {
+                    "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                    "OpenAI-Beta": "assistants=v2"
+                }
+
+                payload = {
+                    "file_id": file_response.id,
+                    "attributes": {
                         "supabase_id": str(doc_id),
                         "api_name": arguments.get("api_name"),
                         "endpoint_path": arguments.get("endpoint_path", ""),
                         "category": arguments.get("category", "")
                     }
-                )
+                }
 
-                vector_store_file_id = vector_store_response.id
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        f"https://api.openai.com/v1/vector_stores/{settings.OPENAI_VECTOR_STORE_ID}/files",
+                        headers=headers,
+                        json=payload,
+                        timeout=30.0
+                    )
+                    response.raise_for_status()
+                    vector_store_data = response.json()
+                    vector_store_file_id = vector_store_data.get("id")
 
             except Exception as e:
                 # Don't fail the whole operation if vector store upload fails
