@@ -11,16 +11,20 @@ class Settings(BaseSettings):
     APP_NAME: str = "Test MCP Server"
     DEBUG: bool = True
     ENVIRONMENT: str = "development"
-    
+
     # CORS settings
     CORS_ORIGINS: List[str] = ["*"]
-    
+
     # API settings
     API_V1_STR: str = "/api/v1"
-    
+
     # Model settings
     MODEL_NAME: str = "test-model"
-    
+
+    # Supabase settings
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
+
     # Load from .env file if it exists
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

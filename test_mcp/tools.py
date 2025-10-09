@@ -5,6 +5,9 @@ These tools can call your actual API or implement mock logic.
 import os
 from typing import Any, Dict
 import httpx
+from datetime import datetime
+from supabase import create_client, Client
+from .config import settings
 
 
 # Configuration - can be moved to config.py
@@ -20,12 +23,22 @@ async def call_api(method: str, path: str, **kwargs) -> Dict[str, Any]:
     headers = {}
     if API_KEY:
         headers["Authorization"] = f"Bearer {API_KEY}"
-    
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         url = f"{API_BASE_URL}{path}"
         response = await client.request(method, url, headers=headers, **kwargs)
         response.raise_for_status()
         return response.json()
+
+
+def get_supabase_client() -> Client:
+    """
+    Get a Supabase client instance.
+    """
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
+
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
 
 async def search_items_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -141,7 +154,7 @@ async def health_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "version": "0.1.0",
         "timestamp": "2025-10-08T08:43:00Z"
     }
-    
+
     # Optional: Check upstream API health
     # try:
     #     await call_api("GET", "/health")
@@ -149,5 +162,68 @@ async def health_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     # except Exception as e:
     #     health_status["upstream_api"] = "unhealthy"
     #     health_status["upstream_error"] = str(e)
-    
+
     return health_status
+
+
+async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Save API documentation to Supabase.
+
+    Arguments:
+        api_name: Name of the API (e.g., "Stripe", "OpenAI")
+        endpoint_path: The endpoint path (e.g., "/v1/chat/completions")
+        http_method: HTTP method (GET, POST, PUT, DELETE, etc.)
+        category: Short category string
+        title: Human-readable title
+        documentation: The documentation text
+        tags: Optional array of tags
+        version: Optional API version
+        examples: Optional JSON with code examples
+        parameters: Optional JSON describing parameters
+        source_url: Optional URL to original documentation
+    """
+    try:
+        supabase = get_supabase_client()
+
+        # Prepare the data
+        data = {
+            "api_name": arguments.get("api_name"),
+            "endpoint_path": arguments.get("endpoint_path"),
+            "http_method": arguments.get("http_method"),
+            "category": arguments.get("category"),
+            "title": arguments.get("title"),
+            "documentation": arguments.get("documentation"),
+            "tags": arguments.get("tags"),
+            "version": arguments.get("version"),
+            "examples": arguments.get("examples"),
+            "parameters": arguments.get("parameters"),
+            "source_url": arguments.get("source_url"),
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+
+        # Remove None values
+        data = {k: v for k, v in data.items() if v is not None}
+
+        # Insert into Supabase
+        result = supabase.table("api_documentation").insert(data).execute()
+
+        return {
+            "success": True,
+            "id": result.data[0]["id"] if result.data else None,
+            "message": "Documentation saved successfully"
+        }
+
+    except ValueError as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Supabase configuration error"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to save documentation"
+        }

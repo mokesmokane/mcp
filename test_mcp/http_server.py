@@ -13,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 import json
 import os
 
-from .tools import search_items_tool, get_item_tool, health_tool
+from .tools import search_items_tool, get_item_tool, health_tool, save_documentation_tool
 
 
 # Rate limiter
@@ -130,6 +130,62 @@ def get_tool_definitions() -> List[ToolDefinition]:
                 "properties": {},
                 "additionalProperties": False
             }
+        ),
+        ToolDefinition(
+            name="save_documentation",
+            description="Save API documentation to the database. Use this to store detailed documentation about API endpoints.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "api_name": {
+                        "type": "string",
+                        "description": "Name of the API (e.g., 'Stripe', 'OpenAI')"
+                    },
+                    "endpoint_path": {
+                        "type": "string",
+                        "description": "The endpoint path (e.g., '/v1/chat/completions')"
+                    },
+                    "http_method": {
+                        "type": "string",
+                        "description": "HTTP method (GET, POST, PUT, DELETE, etc.)"
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Short category string for organizing documentation"
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Human-readable title for the endpoint"
+                    },
+                    "documentation": {
+                        "type": "string",
+                        "description": "The full documentation text"
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional array of tags for filtering"
+                    },
+                    "version": {
+                        "type": "string",
+                        "description": "Optional API version (e.g., 'v1', '2024-01-15')"
+                    },
+                    "examples": {
+                        "type": "object",
+                        "description": "Optional JSON object with code examples"
+                    },
+                    "parameters": {
+                        "type": "object",
+                        "description": "Optional JSON object describing parameters"
+                    },
+                    "source_url": {
+                        "type": "string",
+                        "description": "Optional URL to original documentation"
+                    }
+                },
+                "required": ["api_name", "documentation"],
+                "additionalProperties": False
+            }
         )
     ]
 
@@ -142,6 +198,8 @@ async def execute_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         return await get_item_tool(arguments)
     elif name == "health":
         return await health_tool(arguments)
+    elif name == "save_documentation":
+        return await save_documentation_tool(arguments)
     else:
         raise HTTPException(status_code=404, detail=f"Unknown tool: {name}")
 
