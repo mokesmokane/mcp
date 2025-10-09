@@ -58,20 +58,23 @@ def verify_auth(authorization: Optional[str] = Header(None)) -> str:
     """
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
-    
+
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer":
         raise HTTPException(status_code=401, detail="Invalid authorization scheme. Use Bearer token.")
-    
+
     if not token:
         raise HTTPException(status_code=401, detail="Missing token")
-    
+
+    # Strip quotes if present (some clients send "Bearer \"token\"")
+    token = token.strip('"')
+
     # TODO: Validate token against your auth system
     # For now, just check if it matches an environment variable (for testing)
     expected_token = os.getenv("MCP_API_KEY", "")
     if expected_token and token != expected_token:
         raise HTTPException(status_code=403, detail="Invalid token")
-    
+
     return token
 
 

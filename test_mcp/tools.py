@@ -262,7 +262,7 @@ async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 
             except Exception as e:
                 # Don't fail the whole operation if vector store upload fails
-                print(f"Warning: Failed to upload to vector store: {str(e)}")
+                print(f"ERROR: Failed to upload to vector store: {str(e)}")
 
         return {
             "success": True,
