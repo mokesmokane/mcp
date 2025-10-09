@@ -3,10 +3,12 @@ Tool implementations for the MCP server.
 These tools can call your actual API or implement mock logic.
 """
 import os
+import io
 from typing import Any, Dict
 import httpx
 from datetime import datetime
 from supabase import create_client, Client
+from openai import OpenAI
 from .config import settings
 
 
@@ -168,7 +170,7 @@ async def health_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 
 async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Save API documentation to Supabase.
+    Save API documentation to Supabase and upload to OpenAI vector store.
 
     Arguments:
         api_name: Name of the API (e.g., "Stripe", "OpenAI")
@@ -177,6 +179,7 @@ async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
         category: Short category string
         title: Human-readable title
         documentation: The documentation text
+        short_description: Short description for vector store semantic search
         tags: Optional array of tags
         version: Optional API version
         examples: Optional JSON with code examples
@@ -186,7 +189,7 @@ async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     try:
         supabase = get_supabase_client()
 
-        # Prepare the data
+        # Prepare the data for Supabase
         data = {
             "api_name": arguments.get("api_name"),
             "endpoint_path": arguments.get("endpoint_path"),
@@ -194,6 +197,7 @@ async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
             "category": arguments.get("category"),
             "title": arguments.get("title"),
             "documentation": arguments.get("documentation"),
+            "short_description": arguments.get("short_description"),
             "tags": arguments.get("tags"),
             "version": arguments.get("version"),
             "examples": arguments.get("examples"),
@@ -209,10 +213,48 @@ async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
         # Insert into Supabase
         result = supabase.table("api_documentation").insert(data).execute()
 
+        doc_id = result.data[0]["id"] if result.data else None
+
+        # Upload to OpenAI vector store if short_description is provided
+        vector_store_file_id = None
+        if arguments.get("short_description") and settings.OPENAI_API_KEY and settings.OPENAI_VECTOR_STORE_ID:
+            try:
+                openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+                # Create a file from the short description
+                file_content = arguments.get("short_description").encode('utf-8')
+                file_obj = io.BytesIO(file_content)
+                file_obj.name = f"doc_{doc_id}.txt"
+
+                # Upload file to OpenAI
+                file_response = openai_client.files.create(
+                    file=file_obj,
+                    purpose="assistants"
+                )
+
+                # Add file to vector store with metadata
+                vector_store_response = openai_client.beta.vector_stores.files.create(
+                    vector_store_id=settings.OPENAI_VECTOR_STORE_ID,
+                    file_id=file_response.id,
+                    attributes={
+                        "supabase_id": str(doc_id),
+                        "api_name": arguments.get("api_name"),
+                        "endpoint_path": arguments.get("endpoint_path", ""),
+                        "category": arguments.get("category", "")
+                    }
+                )
+
+                vector_store_file_id = vector_store_response.id
+
+            except Exception as e:
+                # Don't fail the whole operation if vector store upload fails
+                print(f"Warning: Failed to upload to vector store: {str(e)}")
+
         return {
             "success": True,
-            "id": result.data[0]["id"] if result.data else None,
-            "message": "Documentation saved successfully"
+            "id": doc_id,
+            "vector_store_file_id": vector_store_file_id,
+            "message": "Documentation saved successfully" + (" and uploaded to vector store" if vector_store_file_id else "")
         }
 
     except ValueError as e:

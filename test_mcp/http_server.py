@@ -133,7 +133,7 @@ def get_tool_definitions() -> List[ToolDefinition]:
         ),
         ToolDefinition(
             name="save_documentation",
-            description="Save API documentation to the database. Use this to store detailed documentation about API endpoints.",
+            description="Save API documentation to the database and upload to OpenAI vector store for semantic search. Use this to store detailed documentation about API endpoints.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -160,6 +160,10 @@ def get_tool_definitions() -> List[ToolDefinition]:
                     "documentation": {
                         "type": "string",
                         "description": "The full documentation text"
+                    },
+                    "short_description": {
+                        "type": "string",
+                        "description": "Short description for vector store semantic search (will be uploaded to OpenAI with metadata)"
                     },
                     "tags": {
                         "type": "array",

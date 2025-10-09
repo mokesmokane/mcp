@@ -7,3 +7,4 @@ python-dotenv>=1.0.0
 httpx>=0.25.1
 slowapi>=0.1.9
 supabase>=2.0.0
+openai>=1.0.0

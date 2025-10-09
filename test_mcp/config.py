@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
 
+    # OpenAI settings
+    OPENAI_API_KEY: str = ""
+    OPENAI_VECTOR_STORE_ID: str = ""
+
     # Load from .env file if it exists
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
