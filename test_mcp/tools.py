@@ -231,8 +231,12 @@ async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
         parameters: Optional JSON describing parameters
         source_url: Optional URL to original documentation
     """
+    print(f"DEBUG: save_documentation_tool called with api_name={arguments.get('api_name')}")
+
     try:
+        print("DEBUG: Attempting to get Supabase client...")
         supabase = get_supabase_client()
+        print("DEBUG: Supabase client obtained successfully")
 
         # Prepare the data for Supabase
         data = {
@@ -254,17 +258,23 @@ async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 
         # Remove None values
         data = {k: v for k, v in data.items() if v is not None}
+        print(f"DEBUG: Prepared data with {len(data)} fields")
 
         # Insert into Supabase
+        print("DEBUG: Inserting into Supabase...")
         result = supabase.table("api_documentation").insert(data).execute()
+        print(f"DEBUG: Supabase insert result: {result}")
 
         doc_id = result.data[0]["id"] if result.data else None
+        print(f"DEBUG: Inserted doc_id: {doc_id}")
 
         # Upload to OpenAI vector store if short_description is provided
         vector_store_file_id = None
         if arguments.get("short_description") and settings.OPENAI_API_KEY and settings.OPENAI_VECTOR_STORE_ID:
+            print("DEBUG: Uploading to OpenAI vector store...")
             try:
                 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+                print("DEBUG: OpenAI client created")
 
                 # Create a file from the short description
                 file_content = arguments.get("short_description").encode('utf-8')
@@ -272,12 +282,15 @@ async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 file_obj.name = f"doc_{doc_id}.txt"
 
                 # Upload file to OpenAI
+                print("DEBUG: Uploading file to OpenAI...")
                 file_response = openai_client.files.create(
                     file=file_obj,
                     purpose="assistants"
                 )
+                print(f"DEBUG: File uploaded with ID: {file_response.id}")
 
                 # Add file to vector store using HTTP API directly
+                print("DEBUG: Adding file to vector store...")
                 headers = {
                     "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
                     "Content-Type": "application/json",
@@ -304,25 +317,35 @@ async def save_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                     response.raise_for_status()
                     vector_store_data = response.json()
                     vector_store_file_id = vector_store_data.get("id")
+                    print(f"DEBUG: Vector store file ID: {vector_store_file_id}")
 
             except Exception as e:
                 # Don't fail the whole operation if vector store upload fails
                 print(f"ERROR: Failed to upload to vector store: {str(e)}")
+        else:
+            print(f"DEBUG: Skipping vector store upload. short_description={bool(arguments.get('short_description'))}, OPENAI_API_KEY={bool(settings.OPENAI_API_KEY)}, OPENAI_VECTOR_STORE_ID={bool(settings.OPENAI_VECTOR_STORE_ID)}")
+
+        result_message = "Documentation saved successfully" + (" and uploaded to vector store" if vector_store_file_id else "")
+        print(f"DEBUG: Returning success response: {result_message}")
 
         return {
             "success": True,
             "id": doc_id,
             "vector_store_file_id": vector_store_file_id,
-            "message": "Documentation saved successfully" + (" and uploaded to vector store" if vector_store_file_id else "")
+            "message": result_message
         }
 
     except ValueError as e:
+        print(f"ERROR: ValueError in save_documentation: {str(e)}")
         return {
             "success": False,
             "error": str(e),
             "message": "Supabase configuration error"
         }
     except Exception as e:
+        print(f"ERROR: Exception in save_documentation: {str(e)}")
+        import traceback
+        print(f"ERROR: Traceback: {traceback.format_exc()}")
         return {
             "success": False,
             "error": str(e),
