@@ -181,11 +181,20 @@ async def call_api_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
         headers: Additional headers as JSON string or dict
         json_key: Extract specific key from JSON response
     """
-    print(f"DEBUG: call_api_tool called with url={arguments.get('url')}")
+    print("=" * 80)
+    print(f"DEBUG: call_api_tool invoked")
+    print(f"DEBUG: Arguments received: {list(arguments.keys())}")
+    print(f"DEBUG: URL: {arguments.get('url')}")
+    print(f"DEBUG: Method: {arguments.get('method', 'GET (default)')}")
+    print(f"DEBUG: Auth provided: {bool(arguments.get('auth'))}")
+    print(f"DEBUG: Data provided: {bool(arguments.get('data'))}")
+    print(f"DEBUG: Headers provided: {bool(arguments.get('headers'))}")
+    print(f"DEBUG: json_key: {arguments.get('json_key', 'None')}")
 
     try:
         url = arguments.get("url")
         if not url:
+            print("ERROR: Missing required field: url")
             return {"success": False, "error": "Missing required field: url"}
 
         method = arguments.get("method", "GET").upper()
@@ -195,80 +204,154 @@ async def call_api_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
         headers_input = arguments.get("headers")
         json_key = arguments.get("json_key")
 
-        print(f"DEBUG: Making {method} request to {url}")
+        print(f"DEBUG: Request configuration - Method: {method}, as_json: {as_json}")
 
         # Build headers
         headers = {}
         if headers_input:
+            print(f"DEBUG: Parsing headers input (type: {type(headers_input).__name__})")
             if isinstance(headers_input, str):
-                headers = json.loads(headers_input)
+                try:
+                    headers = json.loads(headers_input)
+                    print(f"DEBUG: Parsed headers from JSON string: {list(headers.keys())}")
+                except json.JSONDecodeError as e:
+                    print(f"ERROR: Failed to parse headers JSON: {str(e)}")
             elif isinstance(headers_input, dict):
                 headers = headers_input
+                print(f"DEBUG: Using headers dict: {list(headers.keys())}")
+        else:
+            print("DEBUG: No custom headers provided")
 
         # Handle authentication
         auth = None
         if auth_str:
+            print(f"DEBUG: Processing authentication (length: {len(auth_str)})")
             if auth_str.startswith("Bearer "):
                 headers["Authorization"] = auth_str
+                print("DEBUG: Using Bearer token auth via Authorization header")
             elif ":" in auth_str:
                 # Basic auth
                 username, password = auth_str.split(":", 1)
-                auth = (username, password)
+                auth = (username, "***")  # Don't log password
+                print(f"DEBUG: Using Basic auth (username: {username})")
             else:
                 headers["Authorization"] = f"Bearer {auth_str}"
+                print("DEBUG: Assuming Bearer token (added Bearer prefix)")
+        else:
+            print("DEBUG: No authentication provided")
 
         # Parse data
         parsed_data = None
         if data:
+            print(f"DEBUG: Parsing request data (type: {type(data).__name__})")
             if isinstance(data, str):
                 try:
                     parsed_data = json.loads(data)
+                    print(f"DEBUG: Parsed data from JSON string (keys: {list(parsed_data.keys()) if isinstance(parsed_data, dict) else 'not a dict'})")
                 except json.JSONDecodeError:
                     parsed_data = data
+                    print("DEBUG: Using data as plain string (not valid JSON)")
             else:
                 parsed_data = data
+                print(f"DEBUG: Using data as-is ({type(parsed_data).__name__})")
+
+            # Log data preview (truncate if too long)
+            data_str = str(parsed_data)
+            if len(data_str) > 200:
+                print(f"DEBUG: Data preview: {data_str[:200]}...")
+            else:
+                print(f"DEBUG: Data: {data_str}")
+        else:
+            print("DEBUG: No request data provided")
+
+        print(f"DEBUG: Final headers: {list(headers.keys())}")
+        print(f"DEBUG: Making {method} request to: {url}")
 
         # Make request
         async with httpx.AsyncClient(timeout=30.0) as client:
-            if method == "GET":
-                response = await client.get(url, headers=headers, params=parsed_data, auth=auth)
-            elif method == "POST":
-                if as_json:
-                    response = await client.post(url, headers=headers, json=parsed_data, auth=auth)
+            try:
+                if method == "GET":
+                    print("DEBUG: Executing GET request")
+                    response = await client.get(url, headers=headers, params=parsed_data, auth=auth)
+                elif method == "POST":
+                    if as_json:
+                        print("DEBUG: Executing POST request with JSON body")
+                        response = await client.post(url, headers=headers, json=parsed_data, auth=auth)
+                    else:
+                        print("DEBUG: Executing POST request with form data")
+                        response = await client.post(url, headers=headers, data=parsed_data, auth=auth)
+                elif method == "PUT":
+                    if as_json:
+                        print("DEBUG: Executing PUT request with JSON body")
+                        response = await client.put(url, headers=headers, json=parsed_data, auth=auth)
+                    else:
+                        print("DEBUG: Executing PUT request with form data")
+                        response = await client.put(url, headers=headers, data=parsed_data, auth=auth)
+                elif method == "PATCH":
+                    if as_json:
+                        print("DEBUG: Executing PATCH request with JSON body")
+                        response = await client.patch(url, headers=headers, json=parsed_data, auth=auth)
+                    else:
+                        print("DEBUG: Executing PATCH request with form data")
+                        response = await client.patch(url, headers=headers, data=parsed_data, auth=auth)
+                elif method == "DELETE":
+                    print("DEBUG: Executing DELETE request")
+                    response = await client.delete(url, headers=headers, auth=auth)
                 else:
-                    response = await client.post(url, headers=headers, data=parsed_data, auth=auth)
-            elif method == "PUT":
-                if as_json:
-                    response = await client.put(url, headers=headers, json=parsed_data, auth=auth)
-                else:
-                    response = await client.put(url, headers=headers, data=parsed_data, auth=auth)
-            elif method == "PATCH":
-                if as_json:
-                    response = await client.patch(url, headers=headers, json=parsed_data, auth=auth)
-                else:
-                    response = await client.patch(url, headers=headers, data=parsed_data, auth=auth)
-            elif method == "DELETE":
-                response = await client.delete(url, headers=headers, auth=auth)
-            else:
-                return {"success": False, "error": f"Unsupported HTTP method: {method}"}
+                    print(f"ERROR: Unsupported HTTP method: {method}")
+                    return {"success": False, "error": f"Unsupported HTTP method: {method}"}
 
-        print(f"DEBUG: Response status: {response.status_code}")
+                print(f"DEBUG: Request completed successfully")
+            except httpx.TimeoutException:
+                print(f"ERROR: Request timed out after 30 seconds")
+                raise
+            except httpx.ConnectError as e:
+                print(f"ERROR: Failed to connect to {url}: {str(e)}")
+                raise
+
+        print(f"DEBUG: Response received - Status: {response.status_code}")
+        print(f"DEBUG: Response Content-Type: {response.headers.get('content-type', 'not specified')}")
+        print(f"DEBUG: Response size: {len(response.content)} bytes")
 
         # Parse response
         try:
+            print("DEBUG: Attempting to parse response as JSON")
             response_json = response.json()
+            print("DEBUG: Successfully parsed JSON response")
+
+            # Log response preview
+            response_str = str(response_json)
+            if len(response_str) > 200:
+                print(f"DEBUG: Response preview: {response_str[:200]}...")
+            else:
+                print(f"DEBUG: Response: {response_str}")
 
             # Extract specific key if requested
-            if json_key and isinstance(response_json, dict):
-                response_json = response_json.get(json_key, response_json)
+            if json_key:
+                print(f"DEBUG: Extracting key '{json_key}' from response")
+                if isinstance(response_json, dict):
+                    if json_key in response_json:
+                        response_json = response_json.get(json_key)
+                        print(f"DEBUG: Successfully extracted key '{json_key}'")
+                    else:
+                        print(f"WARNING: Key '{json_key}' not found in response, returning full response")
+                else:
+                    print(f"WARNING: Response is not a dict, cannot extract key '{json_key}'")
 
+            print(f"DEBUG: Returning success response with JSON data")
+            print("=" * 80)
             return {
                 "success": True,
                 "status_code": response.status_code,
                 "data": response_json,
                 "headers": dict(response.headers)
             }
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            print(f"WARNING: Failed to parse JSON: {str(e)}")
+            print("DEBUG: Returning response as text")
+            text_preview = response.text[:200] if len(response.text) > 200 else response.text
+            print(f"DEBUG: Response text preview: {text_preview}")
+            print("=" * 80)
             return {
                 "success": True,
                 "status_code": response.status_code,
@@ -276,16 +359,27 @@ async def call_api_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 "headers": dict(response.headers)
             }
 
+    except httpx.HTTPStatusError as e:
+        print(f"ERROR: HTTP status error: {e.response.status_code}")
+        print(f"ERROR: Response: {e.response.text[:500]}")
+        print("=" * 80)
+        return {
+            "success": False,
+            "error": f"HTTP {e.response.status_code}: {e.response.text[:200]}"
+        }
     except httpx.HTTPError as e:
-        print(f"ERROR: HTTP error in call_api: {str(e)}")
+        print(f"ERROR: HTTP error in call_api: {type(e).__name__}: {str(e)}")
+        print("=" * 80)
         return {
             "success": False,
             "error": f"HTTP error: {str(e)}"
         }
     except Exception as e:
-        print(f"ERROR: Exception in call_api: {str(e)}")
+        print(f"ERROR: Unexpected exception in call_api: {type(e).__name__}: {str(e)}")
         import traceback
-        print(f"ERROR: Traceback: {traceback.format_exc()}")
+        print(f"ERROR: Traceback:")
+        print(traceback.format_exc())
+        print("=" * 80)
         return {
             "success": False,
             "error": str(e)
