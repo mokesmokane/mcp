@@ -168,6 +168,130 @@ async def health_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     return health_status
 
 
+async def call_api_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Universal API caller - call any HTTP API with flexible parameters.
+
+    Arguments:
+        url: The target URL (required)
+        method: HTTP method (GET, POST, PUT, DELETE, PATCH) - default GET
+        auth: Authentication string (format: "username:password" for Basic, or "Bearer token")
+        data: Request body or query parameters (JSON string or dict)
+        as_json: Send body as JSON (default true for POST/PUT/PATCH)
+        headers: Additional headers as JSON string or dict
+        json_key: Extract specific key from JSON response
+    """
+    print(f"DEBUG: call_api_tool called with url={arguments.get('url')}")
+
+    try:
+        url = arguments.get("url")
+        if not url:
+            return {"success": False, "error": "Missing required field: url"}
+
+        method = arguments.get("method", "GET").upper()
+        auth_str = arguments.get("auth")
+        data = arguments.get("data")
+        as_json = arguments.get("as_json", True if method in ["POST", "PUT", "PATCH"] else False)
+        headers_input = arguments.get("headers")
+        json_key = arguments.get("json_key")
+
+        print(f"DEBUG: Making {method} request to {url}")
+
+        # Build headers
+        headers = {}
+        if headers_input:
+            if isinstance(headers_input, str):
+                headers = json.loads(headers_input)
+            elif isinstance(headers_input, dict):
+                headers = headers_input
+
+        # Handle authentication
+        auth = None
+        if auth_str:
+            if auth_str.startswith("Bearer "):
+                headers["Authorization"] = auth_str
+            elif ":" in auth_str:
+                # Basic auth
+                username, password = auth_str.split(":", 1)
+                auth = (username, password)
+            else:
+                headers["Authorization"] = f"Bearer {auth_str}"
+
+        # Parse data
+        parsed_data = None
+        if data:
+            if isinstance(data, str):
+                try:
+                    parsed_data = json.loads(data)
+                except json.JSONDecodeError:
+                    parsed_data = data
+            else:
+                parsed_data = data
+
+        # Make request
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            if method == "GET":
+                response = await client.get(url, headers=headers, params=parsed_data, auth=auth)
+            elif method == "POST":
+                if as_json:
+                    response = await client.post(url, headers=headers, json=parsed_data, auth=auth)
+                else:
+                    response = await client.post(url, headers=headers, data=parsed_data, auth=auth)
+            elif method == "PUT":
+                if as_json:
+                    response = await client.put(url, headers=headers, json=parsed_data, auth=auth)
+                else:
+                    response = await client.put(url, headers=headers, data=parsed_data, auth=auth)
+            elif method == "PATCH":
+                if as_json:
+                    response = await client.patch(url, headers=headers, json=parsed_data, auth=auth)
+                else:
+                    response = await client.patch(url, headers=headers, data=parsed_data, auth=auth)
+            elif method == "DELETE":
+                response = await client.delete(url, headers=headers, auth=auth)
+            else:
+                return {"success": False, "error": f"Unsupported HTTP method: {method}"}
+
+        print(f"DEBUG: Response status: {response.status_code}")
+
+        # Parse response
+        try:
+            response_json = response.json()
+
+            # Extract specific key if requested
+            if json_key and isinstance(response_json, dict):
+                response_json = response_json.get(json_key, response_json)
+
+            return {
+                "success": True,
+                "status_code": response.status_code,
+                "data": response_json,
+                "headers": dict(response.headers)
+            }
+        except json.JSONDecodeError:
+            return {
+                "success": True,
+                "status_code": response.status_code,
+                "data": response.text,
+                "headers": dict(response.headers)
+            }
+
+    except httpx.HTTPError as e:
+        print(f"ERROR: HTTP error in call_api: {str(e)}")
+        return {
+            "success": False,
+            "error": f"HTTP error: {str(e)}"
+        }
+    except Exception as e:
+        print(f"ERROR: Exception in call_api: {str(e)}")
+        import traceback
+        print(f"ERROR: Traceback: {traceback.format_exc()}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
 async def get_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """
     Retrieve API documentation from Supabase by ID.

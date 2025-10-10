@@ -13,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 import json
 import os
 
-from .tools import search_items_tool, get_item_tool, health_tool, save_documentation_tool, get_documentation_tool
+from .tools import search_items_tool, get_item_tool, health_tool, save_documentation_tool, get_documentation_tool, call_api_tool
 
 
 # Rate limiter
@@ -133,6 +133,72 @@ def get_tool_definitions() -> List[ToolDefinition]:
                 "type": "object",
                 "properties": {},
                 "additionalProperties": False
+            }
+        ),
+        ToolDefinition(
+            name="call_api",
+            description="Universal API caller - make HTTP requests to any API with flexible authentication, headers, and data formatting. Similar to Zapier webhooks.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "The target URL to call"
+                    },
+                    "method": {
+                        "type": "string",
+                        "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+                        "description": "HTTP method (default: GET)"
+                    },
+                    "auth": {
+                        "type": "string",
+                        "description": "Authentication: 'username:password' for Basic auth, or 'Bearer token' / 'token' for Bearer auth"
+                    },
+                    "data": {
+                        "type": ["string", "object"],
+                        "description": "Request body (for POST/PUT/PATCH) or query parameters (for GET). Can be JSON string or object."
+                    },
+                    "as_json": {
+                        "type": "boolean",
+                        "description": "Send body as JSON (default true for POST/PUT/PATCH)"
+                    },
+                    "headers": {
+                        "type": ["string", "object"],
+                        "description": "Additional headers as JSON string or object, e.g. {\"X-Custom-Header\": \"value\"}"
+                    },
+                    "json_key": {
+                        "type": "string",
+                        "description": "Extract specific key from JSON response"
+                    }
+                },
+                "required": ["url"],
+                "additionalProperties": False
+            },
+            outputSchema={
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "description": "Whether the request succeeded"
+                    },
+                    "status_code": {
+                        "type": "integer",
+                        "description": "HTTP status code"
+                    },
+                    "data": {
+                        "description": "Response data (JSON object or text string)"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "description": "Response headers"
+                    },
+                    "error": {
+                        "type": "string",
+                        "description": "Error message if success is false"
+                    }
+                },
+                "required": ["success"]
             }
         ),
         ToolDefinition(
@@ -273,6 +339,8 @@ async def execute_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         return await get_item_tool(arguments)
     elif name == "health":
         return await health_tool(arguments)
+    elif name == "call_api":
+        return await call_api_tool(arguments)
     elif name == "get_documentation":
         return await get_documentation_tool(arguments)
     elif name == "save_documentation":
