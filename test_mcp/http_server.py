@@ -31,6 +31,7 @@ class ToolDefinition(BaseModel):
     name: str
     description: str
     inputSchema: Dict[str, Any]  # camelCase per MCP spec
+    outputSchema: Dict[str, Any] = Field(default_factory=dict)  # Optional output schema
 
 
 class ListToolsResponse(BaseModel):
@@ -147,6 +148,32 @@ def get_tool_definitions() -> List[ToolDefinition]:
                 },
                 "required": ["id"],
                 "additionalProperties": False
+            },
+            outputSchema={
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "description": "Whether the request succeeded"
+                    },
+                    "id": {
+                        "type": "string",
+                        "description": "The UUID of the documentation"
+                    },
+                    "formatted_documentation": {
+                        "type": "string",
+                        "description": "Human-readable markdown formatted documentation"
+                    },
+                    "raw_data": {
+                        "type": "object",
+                        "description": "Raw database record with all fields"
+                    },
+                    "error": {
+                        "type": "string",
+                        "description": "Error message if success is false"
+                    }
+                },
+                "required": ["success"]
             }
         ),
         ToolDefinition(
@@ -207,6 +234,32 @@ def get_tool_definitions() -> List[ToolDefinition]:
                 },
                 "required": ["api_name", "documentation"],
                 "additionalProperties": False
+            },
+            outputSchema={
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "description": "Whether the save operation succeeded"
+                    },
+                    "id": {
+                        "type": "string",
+                        "description": "The UUID of the created documentation record"
+                    },
+                    "vector_store_file_id": {
+                        "type": "string",
+                        "description": "OpenAI vector store file ID (if uploaded)"
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Human-readable success or error message"
+                    },
+                    "error": {
+                        "type": "string",
+                        "description": "Detailed error message if success is false"
+                    }
+                },
+                "required": ["success", "message"]
             }
         )
     ]
