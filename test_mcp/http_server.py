@@ -148,7 +148,6 @@ def get_tool_definitions() -> List[ToolDefinition]:
                     },
                     "method": {
                         "type": "string",
-                        "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
                         "description": "HTTP method (default: GET)"
                     },
                     "auth": {
