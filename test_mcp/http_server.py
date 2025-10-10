@@ -155,16 +155,16 @@ def get_tool_definitions() -> List[ToolDefinition]:
                         "description": "Authentication: 'username:password' for Basic auth, or 'Bearer token' / 'token' for Bearer auth"
                     },
                     "data": {
-                        "type": ["string", "object"],
-                        "description": "Request body (for POST/PUT/PATCH) or query parameters (for GET). Can be JSON string or object."
+                        "type": "string",
+                        "description": "Request body (for POST/PUT/PATCH) or query parameters (for GET). Should be a JSON string."
                     },
                     "as_json": {
                         "type": "boolean",
                         "description": "Send body as JSON (default true for POST/PUT/PATCH)"
                     },
                     "headers": {
-                        "type": ["string", "object"],
-                        "description": "Additional headers as JSON string or object, e.g. {\"X-Custom-Header\": \"value\"}"
+                        "type": "string",
+                        "description": "Additional headers as JSON string, e.g. {\"X-Custom-Header\": \"value\"}"
                     },
                     "json_key": {
                         "type": "string",
