@@ -204,9 +204,34 @@ async def get_documentation_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
             }
 
         print(f"DEBUG: Successfully retrieved documentation: {result.data[0].get('title', 'No title')}")
+
+        # Format as human-readable documentation
+        doc = result.data[0]
+        formatted = f"""# {doc.get('title', 'Untitled')}
+
+**API:** {doc.get('api_name', 'N/A')}
+**Endpoint:** {doc.get('http_method', 'GET')} {doc.get('endpoint_path', 'N/A')}
+**Category:** {doc.get('category', 'N/A')}
+**Version:** {doc.get('version', 'N/A')}
+
+## Description
+{doc.get('short_description', 'No description available')}
+
+## Documentation
+{doc.get('documentation', 'No detailed documentation available')}
+"""
+
+        if doc.get('tags'):
+            formatted += f"\n**Tags:** {', '.join(doc['tags'])}\n"
+
+        if doc.get('source_url'):
+            formatted += f"\n**Source:** {doc['source_url']}\n"
+
         return {
             "success": True,
-            "documentation": result.data[0]
+            "id": str(doc.get('id')),
+            "formatted_documentation": formatted,
+            "raw_data": doc
         }
 
     except ValueError as e:
