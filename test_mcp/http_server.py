@@ -386,7 +386,7 @@ def create_http_app() -> FastAPI:
 
             try:
                 result = await execute_tool(tool_name, arguments)
-                return JSONResponse(content={
+                response = {
                     "jsonrpc": "2.0",
                     "id": rpc_id,
                     "result": {
@@ -395,9 +395,11 @@ def create_http_app() -> FastAPI:
                                 "type": "text",
                                 "text": json.dumps(result)
                             }
-                        ]
+                        ],
+                        "structuredContent": result  # Add structured content per MCP spec
                     }
-                })
+                }
+                return JSONResponse(content=response)
             except HTTPException as e:
                 return JSONResponse(
                     status_code=e.status_code,
